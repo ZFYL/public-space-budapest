@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
   // make sure they are bundled into the serverless function on Vercel.
   outputFileTracingIncludes: {
     "/api/og/[slug]": ["./assets/og/*.ttf", "./public/data.json"],
+    "/api/og/varhato/[period]": ["./assets/og/*.ttf", "./public/data.json"],
   },
 };
 

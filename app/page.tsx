@@ -14,6 +14,7 @@ const MapWithNoSSR = dynamic(() => import('@/components/Map'), {
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { Suspense } from 'react';
+import Link from 'next/link';
 
 function HomeContent() {
   const [data, setData] = useState<any[]>([]);
@@ -102,7 +103,7 @@ function HomeContent() {
         >
           Térkép
         </button>
-        <button 
+        <button
           className={`view-btn ${viewMode === 'table' ? 'active' : ''}`}
           onClick={() => {
             setViewMode('table');
@@ -111,6 +112,13 @@ function HomeContent() {
         >
           Lista
         </button>
+        <Link
+          href="/varhato/30-nap"
+          className="view-btn view-btn-upcoming"
+          title="Mi indul Budapesten a következő 30 napban?"
+        >
+          Közelgő ✨
+        </Link>
       </div>
 
       <Sidebar 

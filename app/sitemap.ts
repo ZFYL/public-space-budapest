@@ -22,6 +22,16 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.8,
     },
+    {
+      url: `${SITE.url}/varhato/30-nap`,
+      changeFrequency: "daily",
+      priority: 0.9,
+    },
+    {
+      url: `${SITE.url}/varhato/3-honap`,
+      changeFrequency: "daily",
+      priority: 0.9,
+    },
     ...listings,
   ];
 }

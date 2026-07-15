@@ -397,6 +397,26 @@ body {
   color: white;
 }
 
+/* "Upcoming" is a link styled as a view button */
+a.view-btn {
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+}
+.view-btn-upcoming {
+  color: #a78bfa;
+}
+.view-btn-upcoming:hover {
+  color: #c4b5fd;
+}
+
+a.toggle-btn {
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* Mobile Sidebar Toggle */
 .mobile-sidebar-toggle {
   display: none;

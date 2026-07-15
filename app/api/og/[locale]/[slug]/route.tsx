@@ -8,6 +8,13 @@ import {
   categoryColor,
 } from "@/lib/og";
 import { SITE } from "@/lib/site";
+import {
+  getDictionary,
+  isLocale,
+  translateCategory,
+  translateAddress,
+  formatDate,
+} from "@/lib/i18n";
 
 export const runtime = "nodejs";
 
@@ -28,15 +35,19 @@ function titleFontSize(t: string): number {
   return 40;
 }
 
-function fmtDate(d: string | null): string {
-  return d ? d.replace(/-/g, ". ") + "." : "n/a";
-}
-
 export async function GET(
   _req: Request,
-  { params }: { params: Promise<{ slug: string }> }
+  { params }: { params: Promise<{ locale: string; slug: string }> }
 ) {
-  const { slug } = await params;
+  const { locale, slug } = await params;
+  if (!isLocale(locale)) {
+    return new Response("Not found", {
+      status: 404,
+      headers: { "Cache-Control": CACHE_SHORT },
+    });
+  }
+
+  const dict = getDictionary(locale);
   const item = loadPermits().find((p) => p.slug === slug);
 
   if (!item) {
@@ -47,14 +58,14 @@ export async function GET(
   }
 
   const accent = categoryColor(item.category);
-  const company = clamp(item.company || "Ismeretlen engedélyes", 60);
-  const address = clamp(item.address, 90);
-  const category = (item.category || "Közterület-használat").toUpperCase();
+  const company = clamp(item.company || dict.common.unknown, 60);
+  const address = clamp(translateAddress(item.address, locale), 90);
+  const category = translateCategory(item.category, locale).toUpperCase();
 
   const stats = [
-    { v: `${item.size ?? "?"} m²`, l: "Terület" },
-    { v: fmtDate(item.startDate), l: "Kezdet" },
-    { v: fmtDate(item.endDate), l: "Lejárat" },
+    { v: `${item.size ?? "?"} m²`, l: locale === "hu" ? "Terület" : "Area" },
+    { v: formatDate(item.startDate, locale), l: locale === "hu" ? "Kezdet" : "From" },
+    { v: formatDate(item.endDate, locale), l: locale === "hu" ? "Lejárat" : "Until" },
   ];
 
   return new ImageResponse(
@@ -115,7 +126,7 @@ export async function GET(
                 color: C.text,
               }}
             >
-              {SITE.name}
+              {dict.meta.siteName}
             </div>
             <div
               style={{
@@ -237,6 +248,11 @@ export async function GET(
         </div>
       </div>
     ),
-    { width: OG_WIDTH, height: OG_HEIGHT, fonts: ogFonts(), headers: { "Cache-Control": CACHE_LONG } }
+    {
+      width: OG_WIDTH,
+      height: OG_HEIGHT,
+      fonts: ogFonts(),
+      headers: { "Cache-Control": CACHE_LONG },
+    }
   );
 }

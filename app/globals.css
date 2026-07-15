@@ -57,7 +57,8 @@ body {
 /* Leaflet Overrides */
 .leaflet-container {
   width: 100%;
-  height: 100vh;
+  /* Fill the map wrapper, not the viewport — the footer takes its own space. */
+  height: 100%;
   z-index: 0;
 }
 /* Dark theme for tiles via filter */
@@ -78,9 +79,12 @@ body {
 /* Layout */
 .app-container {
   display: flex;
-  height: calc(100vh - var(--footer-height));
-  width: 100vw;
+  /* dvh keeps the layout correct while mobile browser chrome shows/hides */
+  height: calc(100dvh - var(--footer-height));
+  width: 100%;
+  max-width: 100vw;
   position: relative;
+  overflow: hidden;
 }
 
 .global-footer {
@@ -417,6 +421,48 @@ a.toggle-btn {
   justify-content: center;
 }
 
+/* Language switcher */
+.lang-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--panel-border);
+}
+.lang-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  line-height: 1.4;
+}
+.lang-btn:hover {
+  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.06);
+}
+.lang-btn.active {
+  background: var(--accent-color);
+  color: #fff;
+}
+/* In the map's view-control bar the switcher sits inside the pill */
+.lang-switcher-compact {
+  border: none;
+  border-left: 1px solid var(--panel-border);
+  border-radius: 0;
+  align-self: stretch;
+}
+.lang-switcher-compact .lang-btn {
+  padding: 8px 8px;
+  font-size: 0.75rem;
+}
+
 /* Mobile Sidebar Toggle */
 .mobile-sidebar-toggle {
   display: none;
@@ -459,12 +505,29 @@ a.toggle-btn {
 /* Data Table Container */
 .table-container {
   width: 100%;
-  height: 100vh;
+  height: 100%;
   padding: 80px 24px 24px;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   background: var(--bg-color);
   position: relative;
   z-index: 10;
+}
+
+/* Content pages (permit detail, outlook, about) share the scroll container
+   but need room for the fixed language switcher in the corner. */
+.detail-container {
+  padding: 72px 20px 40px;
+}
+
+.back-link {
+  color: var(--accent-color);
+  text-decoration: none;
+  margin-bottom: 20px;
+  display: inline-block;
+}
+.back-link:hover {
+  text-decoration: underline;
 }
 
 .data-table-wrapper {
@@ -544,20 +607,68 @@ a.toggle-btn {
   .mobile-sidebar-toggle {
     display: block;
   }
-  
+
   .desktop-sidebar-show-btn {
     display: none;
   }
-  
+
   .toggle-group {
     flex-wrap: wrap;
   }
 
-  .table-container {
-    padding: 80px 12px 12px;
+  /* The control bar carries Map / List / Upcoming / language — keep it inside
+     the viewport instead of letting it run off the right edge. */
+  .view-controls {
+    top: 12px;
+    right: 12px;
+    left: 12px;
+    justify-content: center;
   }
-  
+
+  .view-btn {
+    padding: 8px 10px;
+    font-size: 0.8rem;
+  }
+
+  .table-container {
+    padding: 72px 12px 12px;
+  }
+
+  .detail-container {
+    padding: 24px 14px 32px;
+  }
+
   .data-table-wrapper {
     overflow-x: auto; /* Allow horizontal scrolling on mobile */
+  }
+
+  /* Stat rows are label + value pairs; let long values wrap under the label
+     rather than squeezing both onto one line. */
+  .stat-row {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .stat-name {
+    max-width: 100%;
+  }
+
+  .glass-panel {
+    border-radius: 10px;
+  }
+
+  .cta-btn {
+    flex-grow: 1;
+    text-align: center;
+  }
+}
+
+@media (max-width: 420px) {
+  .view-btn {
+    padding: 8px 7px;
+    font-size: 0.72rem;
+  }
+  .lang-switcher-compact .lang-btn {
+    padding: 8px 5px;
+    font-size: 0.68rem;
   }
 }

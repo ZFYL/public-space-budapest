@@ -1,15 +1,19 @@
 import Link from "next/link";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { SITE, CREATOR } from "@/lib/site";
+import { getDictionary, localePath, type Locale } from "@/lib/i18n";
 
-export default function SiteFooter() {
+export default function SiteFooter({ locale }: { locale: Locale }) {
+  const dict = getDictionary(locale);
+
   return (
     <footer className="global-footer">
       <span>
-        Készítette: <strong>{CREATOR.company}</strong>
+        {dict.footer.madeBy} <strong>{CREATOR.company}</strong>
       </span>
       <span className="footer-sep">·</span>
-      <Link href="/a-projektrol" className="footer-link footer-cta">
-        Egyedi adatelemzést szeretne? →
+      <Link href={localePath(locale, "/a-projektrol")} className="footer-link footer-cta">
+        {dict.footer.cta}
       </Link>
       <span className="footer-sep footer-optional">·</span>
       <a
@@ -39,7 +43,13 @@ export default function SiteFooter() {
         GitHub
       </a>
       <span className="footer-sep footer-optional">·</span>
-      <span className="footer-optional">Minden adat tájékoztató jellegű</span>
+      <span className="footer-optional">{dict.footer.disclaimer}</span>
+      <span className="footer-sep">·</span>
+      <LanguageSwitcher
+        locale={locale}
+        label={dict.nav.langLabel}
+        switchTo={dict.nav.switchTo}
+      />
     </footer>
   );
 }

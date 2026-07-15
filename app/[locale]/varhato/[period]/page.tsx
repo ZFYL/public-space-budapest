@@ -1,35 +1,50 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { format } from "date-fns";
-import { hu } from "date-fns/locale";
 import { loadPermits, categoryColor, type PermitRecord } from "@/lib/og";
 import { SITE, CREATOR } from "@/lib/site";
+import {
+  LOCALES,
+  getDictionary,
+  isLocale,
+  localePath,
+  translateCategory,
+  translateAddress,
+  formatDateLong,
+  formatNumber,
+  fill,
+  OG_LOCALE,
+  type Dictionary,
+} from "@/lib/i18n";
 
 // "Upcoming" is relative to today — regenerate hourly so the window is fresh.
 export const revalidate = 3600;
 
 const PERIODS = {
-  "30-nap": {
-    days: 30,
-    label: "Következő 30 nap",
-    title: "Közelgő közterület-foglalások – a következő 30 nap",
-    description:
-      "Milyen új terasz, építkezés, rendezvény vagy filmforgatás indul Budapesten a következő 30 napban? Tervezzen előre: lezárások, korlátozások és forgalmasabb utcák egy helyen, hivatalos engedélyek alapján.",
-  },
-  "3-honap": {
-    days: 90,
-    label: "Következő 3 hónap",
-    title: "Közelgő közterület-foglalások – a következő 3 hónap",
-    description:
-      "Budapest következő 3 hónapja előre: minden közterület-használati engedély, amely mostantól lép életbe — építkezések, rendezvények, filmforgatások és teraszok, hivatalos határozatok alapján.",
-  },
+  "30-nap": { days: 30 },
+  "3-honap": { days: 90 },
 } as const;
 
 type PeriodKey = keyof typeof PERIODS;
 
+function periodCopy(period: PeriodKey, dict: Dictionary) {
+  return period === "30-nap"
+    ? {
+        label: dict.upcoming.label30,
+        title: dict.upcoming.title30,
+        description: dict.upcoming.description30,
+      }
+    : {
+        label: dict.upcoming.label3m,
+        title: dict.upcoming.title3m,
+        description: dict.upcoming.description3m,
+      };
+}
+
 export function generateStaticParams() {
-  return Object.keys(PERIODS).map((period) => ({ period }));
+  return LOCALES.flatMap((locale) =>
+    Object.keys(PERIODS).map((period) => ({ locale, period }))
+  );
 }
 
 function getUpcoming(days: number): PermitRecord[] {
@@ -50,23 +65,34 @@ function getUpcoming(days: number): PermitRecord[] {
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ period: string }>;
+  params: Promise<{ locale: string; period: string }>;
 }): Promise<Metadata> {
-  const { period } = await params;
-  const cfg = PERIODS[period as PeriodKey];
-  if (!cfg) return { title: "Nem található" };
+  const { locale, period } = await params;
+  if (!isLocale(locale) || !(period in PERIODS)) return { title: "Not found" };
+  const dict = getDictionary(locale);
+  const cfg = periodCopy(period as PeriodKey, dict);
 
-  const ogImage = `/api/og/varhato/${period}`;
+  const ogImage = `/api/og/${locale}/varhato/${period}`;
+  const path = `/varhato/${period}`;
+
   return {
     title: cfg.title,
     description: cfg.description,
-    alternates: { canonical: `/varhato/${period}` },
+    alternates: {
+      canonical: `/${locale}${path}`,
+      languages: {
+        hu: `/hu${path}`,
+        en: `/en${path}`,
+        "x-default": `/en${path}`,
+      },
+    },
     openGraph: {
       title: cfg.title,
       description: cfg.description,
-      url: `/varhato/${period}`,
-      siteName: SITE.name,
-      locale: "hu_HU",
+      url: `/${locale}${path}`,
+      siteName: dict.meta.siteName,
+      locale: OG_LOCALE[locale],
+      alternateLocale: OG_LOCALE[locale === "hu" ? "en" : "hu"],
       type: "website",
       images: [{ url: ogImage, width: 1200, height: 630, alt: cfg.title }],
     },
@@ -82,18 +108,21 @@ export async function generateMetadata({
 export default async function UpcomingPage({
   params,
 }: {
-  params: Promise<{ period: string }>;
+  params: Promise<{ locale: string; period: string }>;
 }) {
-  const { period } = await params;
-  const cfg = PERIODS[period as PeriodKey];
-  if (!cfg) notFound();
+  const { locale, period } = await params;
+  if (!isLocale(locale) || !(period in PERIODS)) notFound();
 
-  const upcoming = getUpcoming(cfg.days);
+  const dict = getDictionary(locale);
+  const days = PERIODS[period as PeriodKey].days;
+  const cfg = periodCopy(period as PeriodKey, dict);
+
+  const upcoming = getUpcoming(days);
   const totalSize = upcoming.reduce((s, p) => s + (p.size || 0), 0);
 
   const byCategory = new Map<string, number>();
   for (const p of upcoming) {
-    const c = p.category || "egyéb";
+    const c = p.category || "Egyéb";
     byCategory.set(c, (byCategory.get(c) || 0) + 1);
   }
   const topCategories = [...byCategory.entries()].sort((a, b) => b[1] - a[1]);
@@ -111,83 +140,72 @@ export default async function UpcomingPage({
     "@type": "ItemList",
     name: cfg.title,
     description: cfg.description,
+    inLanguage: locale,
     numberOfItems: upcoming.length,
     itemListElement: upcoming.slice(0, 50).map((p, i) => ({
       "@type": "ListItem",
       position: i + 1,
-      name: `${p.category || "Közterület-használat"} – ${p.address}`,
-      url: `${SITE.url}/helyszin/${p.slug}`,
+      name: `${translateCategory(p.category, locale)} – ${translateAddress(p.address, locale)}`,
+      url: `${SITE.url}/${locale}/helyszin/${p.slug}`,
     })),
   };
 
   return (
     <div
-      className="table-container"
-      style={{
-        padding: "80px 24px 40px",
-        maxWidth: "900px",
-        margin: "0 auto",
-        height: "100%",
-        overflowY: "auto",
-      }}
+      className="table-container detail-container"
+      style={{ maxWidth: "900px", margin: "0 auto" }}
     >
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }}
       />
 
-      <Link
-        href="/"
-        style={{
-          color: "var(--accent-color)",
-          textDecoration: "none",
-          marginBottom: "20px",
-          display: "inline-block",
-        }}
-      >
-        &larr; Vissza a térképre
+      <Link href={localePath(locale, "/")} className="back-link">
+        {dict.nav.backToMap}
       </Link>
 
       <div className="glass-panel" style={{ padding: "32px", marginTop: "20px" }}>
         <h1 style={{ marginBottom: "12px", color: "var(--accent-color)" }}>
-          Mi indul Budapesten? — {cfg.label.toLowerCase()}
+          {fill(dict.upcoming.h1, { period: cfg.label.toLowerCase() })}
         </h1>
         <p style={{ color: "var(--text-muted)", lineHeight: 1.7, marginBottom: "20px" }}>
-          Budapest kilátásai előre: az alábbi közterület-használati engedélyek
-          a mai naptól számított {cfg.days} napon belül lépnek életbe. Új
-          építkezések, rendezvények, filmforgatások és teraszok — mielőtt még
-          az utcán találkozna velük.
+          {fill(dict.upcoming.intro, { days })}
         </p>
 
         <div className="toggle-group" style={{ maxWidth: "420px", marginBottom: "24px" }}>
           <Link
-            href="/varhato/30-nap"
+            href={localePath(locale, "/varhato/30-nap")}
             className={`toggle-btn ${period === "30-nap" ? "active" : ""}`}
-            style={{ textAlign: "center", textDecoration: "none" }}
           >
-            Következő 30 nap
+            {dict.upcoming.label30}
           </Link>
           <Link
-            href="/varhato/3-honap"
+            href={localePath(locale, "/varhato/3-honap")}
             className={`toggle-btn ${period === "3-honap" ? "active" : ""}`}
-            style={{ textAlign: "center", textDecoration: "none" }}
           >
-            Következő 3 hónap
+            {dict.upcoming.label3m}
           </Link>
         </div>
 
         <div className="section">
           <div className="stat-row">
-            <span className="stat-name">Életbe lépő engedélyek</span>
-            <span className="stat-value">{upcoming.length} db</span>
+            <span className="stat-name">{dict.upcoming.permitsStarting}</span>
+            <span className="stat-value">
+              {upcoming.length} {dict.sidebar.pieces}
+            </span>
           </div>
           <div className="stat-row">
-            <span className="stat-name">Összes lefoglalt terület</span>
-            <span className="stat-value">{Math.round(totalSize).toLocaleString("hu-HU")} m²</span>
+            <span className="stat-name">{dict.upcoming.totalArea}</span>
+            <span className="stat-value">
+              {formatNumber(Math.round(totalSize), locale)} m²
+            </span>
           </div>
           {topCategories.slice(0, 4).map(([cat, count]) => (
             <div className="stat-row" key={cat}>
-              <span className="stat-name" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span
+                className="stat-name"
+                style={{ display: "flex", alignItems: "center", gap: "8px" }}
+              >
                 <span
                   style={{
                     width: 10,
@@ -198,48 +216,34 @@ export default async function UpcomingPage({
                     flexShrink: 0,
                   }}
                 />
-                {cat}
+                {translateCategory(cat, locale)}
               </span>
-              <span className="stat-value">{count} db</span>
+              <span className="stat-value">
+                {count} {dict.sidebar.pieces}
+              </span>
             </div>
           ))}
         </div>
       </div>
 
       <div className="glass-panel" style={{ padding: "24px 28px", marginTop: "24px" }}>
-        <h2 style={{ marginBottom: "12px", fontSize: "1.1rem" }}>Miért érdemes előre nézni?</h2>
+        <h2 style={{ marginBottom: "12px", fontSize: "1.1rem" }}>
+          {dict.upcoming.whyTitle}
+        </h2>
         <ul style={{ color: "var(--text-muted)", lineHeight: 1.8, paddingLeft: "20px" }}>
-          <li>
-            <strong style={{ color: "var(--text-main)" }}>Közlekedés és parkolás:</strong>{" "}
-            az induló építkezések és felvonulási területek járdát, parkolósávot
-            vagy teljes útszakaszt zárhatnak le — jobb útvonalat még előtte tervezni.
-          </li>
-          <li>
-            <strong style={{ color: "var(--text-main)" }}>Rendezvények és forgatások:</strong>{" "}
-            ahol esemény vagy filmforgatás indul, ott időszakos lezárásra és
-            nagyobb forgalomra érdemes számítani.
-          </li>
-          <li>
-            <strong style={{ color: "var(--text-main)" }}>Vállalkozásoknak:</strong>{" "}
-            a környéken nyíló teraszok és munkaterületek befolyásolják a
-            gyalogosforgalmat, a kirakati láthatóságot és az áruszállítást.
-          </li>
-          <li>
-            <strong style={{ color: "var(--text-main)" }}>Lakóknak:</strong>{" "}
-            zajosabb időszakok, korlátozott kapubejárók, magasabb terheltség —
-            kevesebb meglepetés, ha időben látszik.
-          </li>
+          {dict.upcoming.whyItems.map((item) => (
+            <li key={item.title}>
+              <strong style={{ color: "var(--text-main)" }}>{item.title}</strong>{" "}
+              {item.body}
+            </li>
+          ))}
         </ul>
       </div>
 
       <div style={{ marginTop: "32px" }}>
         {upcoming.length === 0 && (
           <div className="glass-panel" style={{ padding: "32px", textAlign: "center" }}>
-            <p style={{ color: "var(--text-muted)" }}>
-              A jelenlegi adatbázisban nincs olyan engedély, amely ebben az
-              időszakban lépne életbe. Nézzen vissza az adatok következő
-              frissítése után!
-            </p>
+            <p style={{ color: "var(--text-muted)" }}>{dict.upcoming.emptyState}</p>
           </div>
         )}
 
@@ -254,13 +258,13 @@ export default async function UpcomingPage({
                 margin: "0 0 12px 4px",
               }}
             >
-              {format(new Date(day), "yyyy. MMMM d., EEEE", { locale: hu })}
+              {formatDateLong(day, locale)}
             </h2>
             <div className="glass-panel" style={{ padding: "8px 20px" }}>
               {items.map((p) => (
                 <div className="stat-row" key={p.slug}>
                   <Link
-                    href={`/helyszin/${p.slug}`}
+                    href={localePath(locale, `/helyszin/${p.slug}`)}
                     style={{
                       textDecoration: "none",
                       color: "var(--text-main)",
@@ -282,10 +286,19 @@ export default async function UpcomingPage({
                         flexShrink: 0,
                       }}
                     />
-                    <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      <strong>{p.company || "Ismeretlen"}</strong>
+                    <span
+                      style={{
+                        minWidth: 0,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      <strong>{p.company || dict.common.unknown}</strong>
                       <span style={{ color: "var(--text-muted)" }}>
-                        {" "}— {p.category || "közterület-használat"}, {p.address}
+                        {" "}
+                        — {translateCategory(p.category, locale)},{" "}
+                        {translateAddress(p.address, locale)}
                       </span>
                     </span>
                   </Link>
@@ -299,17 +312,21 @@ export default async function UpcomingPage({
         ))}
       </div>
 
-      <div className="glass-panel consulting-cta" style={{ padding: "24px 28px", margin: "8px 0 40px" }}>
-        <h3 style={{ marginBottom: "8px" }}>Előrejelzés a saját piacára?</h3>
+      <div
+        className="glass-panel consulting-cta"
+        style={{ padding: "24px 28px", margin: "8px 0 40px" }}
+      >
+        <h3 style={{ marginBottom: "8px" }}>{dict.upcoming.ctaTitle}</h3>
         <p style={{ color: "var(--text-muted)", marginBottom: "16px", lineHeight: 1.5 }}>
-          Ez az oldal nyilvános adatokból számol előre. A{" "}
-          <strong style={{ color: "var(--text-main)" }}>{CREATOR.company}</strong>{" "}
-          ugyanezt megcsinálja az Ön adataiból is: trendek, előrejelzések,
-          versenytárs-figyelés és egyedi dashboardok.
+          {dict.upcoming.ctaBody}
         </p>
         <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-          <a href={`mailto:${CREATOR.email}`} className="cta-btn">Beszéljünk</a>
-          <Link href="/a-projektrol" className="cta-btn cta-btn-ghost">A projektről</Link>
+          <a href={`mailto:${CREATOR.email}`} className="cta-btn">
+            {dict.upcoming.ctaButton}
+          </a>
+          <Link href={localePath(locale, "/a-projektrol")} className="cta-btn cta-btn-ghost">
+            {dict.upcoming.ctaAbout}
+          </Link>
         </div>
       </div>
     </div>

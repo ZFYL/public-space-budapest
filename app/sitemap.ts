@@ -1,37 +1,35 @@
 import type { MetadataRoute } from "next";
 import { loadPermits } from "@/lib/og";
 import { SITE } from "@/lib/site";
+import { LOCALES } from "@/lib/i18n";
+
+/** Every URL is listed per locale and cross-references its translations. */
+function entry(
+  path: string,
+  changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"],
+  priority: number
+): MetadataRoute.Sitemap {
+  const languages = Object.fromEntries(
+    LOCALES.map((l) => [l, `${SITE.url}/${l}${path}`])
+  );
+  return LOCALES.map((locale) => ({
+    url: `${SITE.url}/${locale}${path}`,
+    changeFrequency,
+    priority,
+    alternates: { languages },
+  }));
+}
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const permits = loadPermits();
 
-  const listings: MetadataRoute.Sitemap = permits.map((item) => ({
-    url: `${SITE.url}/helyszin/${item.slug}`,
-    changeFrequency: "monthly",
-    priority: 0.6,
-  }));
-
   return [
-    {
-      url: SITE.url,
-      changeFrequency: "daily",
-      priority: 1,
-    },
-    {
-      url: `${SITE.url}/a-projektrol`,
-      changeFrequency: "monthly",
-      priority: 0.8,
-    },
-    {
-      url: `${SITE.url}/varhato/30-nap`,
-      changeFrequency: "daily",
-      priority: 0.9,
-    },
-    {
-      url: `${SITE.url}/varhato/3-honap`,
-      changeFrequency: "daily",
-      priority: 0.9,
-    },
-    ...listings,
+    ...entry("", "daily", 1),
+    ...entry("/varhato/30-nap", "daily", 0.9),
+    ...entry("/varhato/3-honap", "daily", 0.9),
+    ...entry("/a-projektrol", "monthly", 0.8),
+    ...permits.flatMap((item) =>
+      entry(`/helyszin/${item.slug}`, "monthly", 0.6)
+    ),
   ];
 }

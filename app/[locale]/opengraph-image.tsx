@@ -8,13 +8,43 @@ import {
   projectDots,
 } from "@/lib/og";
 import { SITE } from "@/lib/site";
+import { LOCALES, isLocale, type Locale } from "@/lib/i18n";
+
+export function generateStaticParams() {
+  return LOCALES.map((locale) => ({ locale }));
+}
 
 export const alt =
-  "Budapest közterület-használati engedélyek interaktív térképe — teraszok, építkezések, lezárások";
+  "Budapest public-space usage permits — interactive map of terraces, construction sites and closures";
 export const size = { width: OG_WIDTH, height: OG_HEIGHT };
 export const contentType = "image/png";
 
-export default async function Image() {
+const COPY: Record<
+  Locale,
+  { eyebrow: string; headline: string; sub: string; stats: [string, string, string] }
+> = {
+  hu: {
+    eyebrow: "Hivatalos engedélyek · nyílt adat",
+    headline: "Ki foglalja el a közterületet Budapesten?",
+    sub: "Teraszok, építkezések, filmforgatások és lezárások — minden közterület-használati határozat egy interaktív térképen.",
+    stats: ["Engedély", "Kerület", "Terasz"],
+  },
+  en: {
+    eyebrow: "Official permits · open data",
+    headline: "Who occupies Budapest's public spaces?",
+    sub: "Terraces, construction sites, film shoots and closures — every public-space permit on one interactive map.",
+    stats: ["Permits", "Districts", "Terraces"],
+  },
+};
+
+export default async function Image({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale: raw } = await params;
+  const locale: Locale = isLocale(raw) ? raw : "en";
+  const copy = COPY[locale];
   const permits = loadPermits();
 
   // Addresses use both Roman ("VIII.") and Arabic ("8.") district notation —
@@ -46,6 +76,12 @@ export default async function Image() {
   const MAP_W = 560;
   const MAP_H = 500;
   const dots = projectDots(permits, MAP_W, MAP_H, 420);
+
+  const statValues = [
+    String(permits.length),
+    String(districts.size),
+    String(terraces),
+  ];
 
   return new ImageResponse(
     (
@@ -93,7 +129,7 @@ export default async function Image() {
               marginBottom: 20,
             }}
           >
-            Hivatalos engedélyek · nyílt adat
+            {copy.eyebrow}
           </div>
           <div
             style={{
@@ -105,7 +141,7 @@ export default async function Image() {
               marginBottom: 24,
             }}
           >
-            Ki foglalja el a közterületet Budapesten?
+            {copy.headline}
           </div>
           <div
             style={{
@@ -116,18 +152,13 @@ export default async function Image() {
               marginBottom: 40,
             }}
           >
-            Teraszok, építkezések, filmforgatások és lezárások — minden
-            közterület-használati határozat egy interaktív térképen.
+            {copy.sub}
           </div>
 
           <div style={{ display: "flex", gap: 36 }}>
-            {[
-              { v: String(permits.length), l: "Engedély" },
-              { v: String(districts.size), l: "Kerület" },
-              { v: String(terraces), l: "Terasz" },
-            ].map((s) => (
+            {copy.stats.map((label, i) => (
               <div
-                key={s.l}
+                key={label}
                 style={{ display: "flex", flexDirection: "column", gap: 4 }}
               >
                 <div
@@ -139,7 +170,7 @@ export default async function Image() {
                     lineHeight: 1,
                   }}
                 >
-                  {s.v}
+                  {statValues[i]}
                 </div>
                 <div
                   style={{
@@ -150,7 +181,7 @@ export default async function Image() {
                     color: C.faint,
                   }}
                 >
-                  {s.l}
+                  {label}
                 </div>
               </div>
             ))}

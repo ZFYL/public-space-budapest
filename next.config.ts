@@ -4,11 +4,14 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: import.meta.dirname,
   },
-  // The OG share-card route reads fonts + the dataset from disk at runtime —
+  // The OG share-card routes read fonts + the dataset from disk at runtime —
   // make sure they are bundled into the serverless function on Vercel.
   outputFileTracingIncludes: {
-    "/api/og/[slug]": ["./assets/og/*.ttf", "./public/data.json"],
-    "/api/og/varhato/[period]": ["./assets/og/*.ttf", "./public/data.json"],
+    "/api/og/[locale]/[slug]": ["./assets/og/*.ttf", "./public/data.json"],
+    "/api/og/[locale]/varhato/[period]": [
+      "./assets/og/*.ttf",
+      "./public/data.json",
+    ],
   },
 };
 

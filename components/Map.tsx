@@ -7,14 +7,24 @@ import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import L from 'leaflet';
 import 'leaflet.heat';
-import { differenceInDays, isAfter, isBefore, parseISO } from 'date-fns';
+import { differenceInDays } from 'date-fns';
 import { useMap } from 'react-leaflet';
+import {
+  localePath,
+  translateCategory,
+  translateAddress,
+  formatDate,
+  type ClientDictionary,
+  type Locale,
+} from '@/lib/i18n';
 
 type MapProps = {
   data: any[];
   colorMode: 'default' | 'size' | 'category' | 'company' | 'startDate';
   mapStyle: 'dark' | 'light' | 'satellite' | 'terrain';
   heatmapOverlay?: boolean;
+  dict: ClientDictionary;
+  locale: Locale;
 };
 
 function HeatmapLayer({ data }: { data: any[] }) {
@@ -61,7 +71,7 @@ function stringToColor(str: string) {
   return '#' + '00000'.substring(0, 6 - c.length) + c;
 }
 
-export default function Map({ data, colorMode, mapStyle, heatmapOverlay = false }: MapProps) {
+export default function Map({ data, colorMode, mapStyle, heatmapOverlay = false, dict, locale }: MapProps) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -136,9 +146,11 @@ export default function Map({ data, colorMode, mapStyle, heatmapOverlay = false 
         // Determine color based on mode
         let color = '';
         if (colorMode === 'category') {
-          color = stringToColor(item.category || 'Egyéb');
+          // Hash the raw Hungarian value so a marker keeps its color across
+          // languages.
+          color = stringToColor(item.category || '__other__');
         } else if (colorMode === 'company') {
-          color = stringToColor(item.company || 'Ismeretlen');
+          color = stringToColor(item.company || '__unknown__');
         } else if (colorMode === 'size') {
           const size = parseFloat(item.size) || 0;
           const intensity = Math.min(255, Math.floor((size / 100) * 255));
@@ -161,20 +173,20 @@ export default function Map({ data, colorMode, mapStyle, heatmapOverlay = false 
           >
             <Popup>
               <div className="popup-content">
-                <h3>{item.category || "Egyéb"}</h3>
-                <p><strong>Kérelmező:</strong> {item.company}</p>
-                <p><strong>Hely:</strong> {item.address}</p>
-                <p><strong>Méret:</strong> {item.size} nm</p>
-                <p><strong>Időszak:</strong> {item.startDate} - {item.endDate}</p>
-                <a 
-                  href={`/helyszin/${item.slug}`} 
+                <h3>{item.category ? translateCategory(item.category, locale) : dict.map.unknown}</h3>
+                <p><strong>{dict.map.applicant}</strong> {item.company || dict.common.unknown}</p>
+                <p><strong>{dict.map.location}</strong> {translateAddress(item.address, locale)}</p>
+                <p><strong>{dict.map.size}</strong> {item.size} m²</p>
+                <p><strong>{dict.map.period}</strong> {formatDate(item.startDate, locale)} – {formatDate(item.endDate, locale)}</p>
+                <a
+                  href={localePath(locale, `/helyszin/${item.slug}`)}
                   style={{ display: 'inline-block', marginTop: '12px', padding: '6px 12px', backgroundColor: 'var(--accent-color)', color: '#fff', borderRadius: '4px', textDecoration: 'none', fontWeight: 'bold' }}
                 >
-                  Részletek és GYIK &rarr;
+                  {dict.map.details}
                 </a>
                 {isHot && (
                   <p style={{color: 'var(--danger-color)', fontWeight: 'bold', marginTop: '8px'}}>
-                    🔥 Hamarosan lejár vagy lejárt!
+                    {dict.map.expiringSoon}
                   </p>
                 )}
               </div>

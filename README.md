@@ -28,7 +28,9 @@ This project takes the official public-space usage decisions (*közterület-hasz
 - 🔍 **Filters** by district, usage category, company and permit status (active / expiring / expired)
 - 🎨 **Color modes** — color the map by expiry, category, company, size or start date
 - 📋 **Sortable table view** of the full dataset
+- 🔮 **Upcoming outlook** — what comes into effect in the next 30 days / 3 months, grouped by start date
 - 📄 **A dedicated SEO page for every permit** with structured data (FAQ JSON-LD), unique metadata and a **generated Open Graph share card**
+- 🌍 **Fully bilingual (HU / EN)** — content, metadata and share images, with geo-based language selection
 - 🌗 Dark / light / satellite / terrain base maps
 
 **The full data pipeline is included** — from the original XLSX (in [`data/`](data/)) through the Python cleaning/geocoding scripts (in [`scripts/`](scripts/)) to the final [`public/data.json`](public/data.json).
@@ -40,8 +42,9 @@ This project takes the official public-space usage decisions (*közterület-hasz
 | Framework | Next.js 16 (App Router), React 19, TypeScript |
 | Map | Leaflet, react-leaflet, marker clustering, leaflet.heat |
 | UI | MUI v9, Tailwind CSS v4 |
-| Share images | `next/og` (Satori) — generated 1200×630 cards for the home page and every permit |
-| SEO | Per-page metadata, canonical URLs, `sitemap.xml` (~1,500 URLs), `robots.txt`, JSON-LD (WebSite, Organization, Dataset, FAQ) |
+| i18n | Locale-prefixed routes (`/hu`, `/en`), geo-based selection in `proxy.ts`, typed dictionaries in `lib/i18n.ts` — no i18n library |
+| Share images | `next/og` (Satori) — generated 1200×630 cards per locale for the home page, every permit and each outlook window |
+| SEO | Per-locale metadata, canonical + `hreflang` (incl. `x-default`), `sitemap.xml` (~2,950 URLs with language alternates), `robots.txt`, JSON-LD (WebSite, Organization, Dataset, FAQ, ItemList) |
 | Data pipeline | Python (pandas-free, stdlib + requests), Photon & Nominatim geocoding |
 
 ## Getting started
@@ -62,6 +65,22 @@ NEXT_PUBLIC_SITE_URL=https://your-domain.hu
 ```
 
 Everything domain-dependent — canonical URLs, Open Graph images, `sitemap.xml`, `robots.txt`, JSON-LD — derives from this single variable (see [`lib/site.ts`](lib/site.ts)). No other change is needed to go live on any domain.
+
+Optional: `NEXT_PUBLIC_CLARITY_PROJECT_ID` points analytics at your own Microsoft Clarity project (set it empty to disable).
+
+## Languages
+
+The site is fully bilingual and serves **Hungarian to visitors in Hungary, English to everyone else**:
+
+| Layer | Where |
+|---|---|
+| Language detection | [`proxy.ts`](proxy.ts) — cookie → geo (`x-vercel-ip-country`) → `Accept-Language` → English |
+| Translations | [`lib/i18n.ts`](lib/i18n.ts) — one typed `Dictionary` per locale, including English labels for all 60+ official permit categories |
+| Routes | `/hu/…` and `/en/…`; unprefixed URLs redirect to the detected locale |
+
+An explicit choice via the language switcher is stored in a cookie and **always** beats geo detection — a Hungarian reading in English stays in English. Every page carries `hreflang` alternates plus an `x-default`, so Google serves the right language per region.
+
+To add a locale: add it to `LOCALES`, write its `Dictionary`, and everything else (routes, sitemap, share cards, hreflang) follows automatically.
 
 ## Deploying on a .hu domain
 

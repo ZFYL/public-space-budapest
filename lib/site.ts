@@ -15,14 +15,8 @@ function normalizeUrl(raw: string | undefined, fallback: string): string {
 export const SITE = {
   url: normalizeUrl(
     process.env.NEXT_PUBLIC_SITE_URL,
-    "https://budapest-kozterulet.hu"
+    "https://kozterhasznalat.hu"
   ),
-  name: "Budapest Közterület Térkép",
-  shortName: "Közterület Térkép",
-  title: "Ki foglalja el a közterületet Budapesten? | Közterület-térkép",
-  description:
-    "Interaktív térkép és kereshető adatbázis Budapest közterület-használati engedélyeiről: vendéglátó teraszok, építkezések, filmforgatások és lezárások — hivatalos önkormányzati határozatok alapján, nyílt forráskóddal.",
-  locale: "hu_HU",
   githubRepo: "https://github.com/ZFYL/public-space-budapest",
 } as const;
 

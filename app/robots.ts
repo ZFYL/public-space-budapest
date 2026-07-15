@@ -5,7 +5,11 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: "*",
-      allow: "/",
+      // The generated share cards live under /api/og/ and must stay crawlable:
+      // LinkedIn's and Facebook's scrapers honour robots.txt, and a blocked
+      // og:image means a link with no preview. The longer Allow wins over the
+      // Disallow below.
+      allow: ["/", "/api/og/"],
       disallow: "/api/",
     },
     sitemap: `${SITE.url}/sitemap.xml`,

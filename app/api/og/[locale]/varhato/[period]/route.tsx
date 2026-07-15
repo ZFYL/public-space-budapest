@@ -8,6 +8,12 @@ import {
   categoryColor,
 } from "@/lib/og";
 import { SITE } from "@/lib/site";
+import {
+  isLocale,
+  translateCategory,
+  formatNumber,
+  type Locale,
+} from "@/lib/i18n";
 
 export const runtime = "nodejs";
 
@@ -15,25 +21,56 @@ export const runtime = "nodejs";
 // the CDN refreshes in the background.
 const CACHE = "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400";
 
-const PERIODS: Record<string, { days: number; label: string }> = {
-  "30-nap": { days: 30, label: "a következő 30 napban" },
-  "3-honap": { days: 90, label: "a következő 3 hónapban" },
+const PERIOD_DAYS: Record<string, number> = {
+  "30-nap": 30,
+  "3-honap": 90,
+};
+
+const COPY: Record<
+  Locale,
+  {
+    eyebrow: string;
+    headline: (period: string) => string;
+    sub: string;
+    newPermits: string;
+    areaReserved: string;
+    periodLabel: Record<string, string>;
+  }
+> = {
+  hu: {
+    eyebrow: "Budapest kilátásai · tervezzen előre",
+    headline: (p) => `Mi indul Budapesten ${p}?`,
+    sub: "Új építkezések, rendezvények, filmforgatások és teraszok — a hivatalos engedélyek alapján, mielőtt az utcán találkozna velük.",
+    newPermits: "Új foglalás",
+    areaReserved: "Lefoglalt terület",
+    periodLabel: { "30-nap": "a következő 30 napban", "3-honap": "a következő 3 hónapban" },
+  },
+  en: {
+    eyebrow: "Budapest's outlook · plan ahead",
+    headline: (p) => `What's starting in Budapest ${p}?`,
+    sub: "New construction sites, events, film shoots and terraces — from the official permits, before you meet them on the street.",
+    newPermits: "New permits",
+    areaReserved: "Area reserved",
+    periodLabel: { "30-nap": "in the next 30 days", "3-honap": "in the next 3 months" },
+  },
 };
 
 export async function GET(
   _req: Request,
-  { params }: { params: Promise<{ period: string }> }
+  { params }: { params: Promise<{ locale: string; period: string }> }
 ) {
-  const { period } = await params;
-  const cfg = PERIODS[period];
-  if (!cfg) {
+  const { locale, period } = await params;
+  const days = PERIOD_DAYS[period];
+  if (!isLocale(locale) || !days) {
     return new Response("Not found", { status: 404 });
   }
+
+  const copy = COPY[locale];
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const horizon = new Date(today);
-  horizon.setDate(horizon.getDate() + cfg.days);
+  horizon.setDate(horizon.getDate() + days);
 
   const upcoming = loadPermits().filter((p) => {
     if (!p.startDate) return false;
@@ -41,13 +78,11 @@ export async function GET(
     return start >= today && start <= horizon;
   });
 
-  const totalSize = Math.round(
-    upcoming.reduce((s, p) => s + (p.size || 0), 0)
-  );
+  const totalSize = Math.round(upcoming.reduce((s, p) => s + (p.size || 0), 0));
 
   const byCategory = new Map<string, number>();
   for (const p of upcoming) {
-    const c = p.category || "egyéb";
+    const c = p.category || "Egyéb";
     byCategory.set(c, (byCategory.get(c) || 0) + 1);
   }
   const topCategories = [...byCategory.entries()]
@@ -91,7 +126,7 @@ export async function GET(
             marginBottom: 20,
           }}
         >
-          Budapest kilátásai · tervezzen előre
+          {copy.eyebrow}
         </div>
         <div
           style={{
@@ -104,7 +139,7 @@ export async function GET(
             marginBottom: 22,
           }}
         >
-          {`Mi indul Budapesten ${cfg.label}?`}
+          {copy.headline(copy.periodLabel[period])}
         </div>
         <div
           style={{
@@ -116,8 +151,7 @@ export async function GET(
             marginBottom: 40,
           }}
         >
-          Új építkezések, rendezvények, filmforgatások és teraszok — a
-          hivatalos engedélyek alapján, mielőtt az utcán találkozna velük.
+          {copy.sub}
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 44 }}>
@@ -142,7 +176,7 @@ export async function GET(
                 color: C.faint,
               }}
             >
-              Új foglalás
+              {copy.newPermits}
             </div>
           </div>
           <div style={{ display: "flex", width: 1, height: 60, backgroundColor: C.line }} />
@@ -156,7 +190,7 @@ export async function GET(
                 lineHeight: 1,
               }}
             >
-              {`${totalSize.toLocaleString("hu-HU")} m²`}
+              {`${formatNumber(totalSize, locale)} m²`}
             </div>
             <div
               style={{
@@ -167,7 +201,7 @@ export async function GET(
                 color: C.faint,
               }}
             >
-              Lefoglalt terület
+              {copy.areaReserved}
             </div>
           </div>
           <div style={{ display: "flex", width: 1, height: 60, backgroundColor: C.line }} />
@@ -184,7 +218,7 @@ export async function GET(
                   }}
                 />
                 <div style={{ display: "flex", fontSize: 20, fontWeight: 500, color: C.muted }}>
-                  {`${cat} — ${count} db`}
+                  {`${translateCategory(cat, locale)} — ${count}`}
                 </div>
               </div>
             ))}
@@ -200,7 +234,7 @@ export async function GET(
             color: C.accentLight,
           }}
         >
-          {`${SITE.url.replace(/^https?:\/\//, "")}/varhato/${period}`}
+          {`${SITE.url.replace(/^https?:\/\//, "")}/${locale}/varhato/${period}`}
         </div>
       </div>
     ),

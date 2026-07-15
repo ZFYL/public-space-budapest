@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import ThemeRegistry from "@/components/ThemeRegistry";
 import SiteFooter from "@/components/SiteFooter";
+import ClarityAnalytics from "@/components/ClarityAnalytics";
 import { SITE, CREATOR } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -122,6 +123,7 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
+        <ClarityAnalytics />
         <ThemeRegistry>
           <main className="app-container">
             {children}

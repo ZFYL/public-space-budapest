@@ -26,6 +26,16 @@ export const SITE = {
   githubRepo: "https://github.com/ZFYL/public-space-budapest",
 } as const;
 
+/**
+ * Microsoft Clarity project ID. Set NEXT_PUBLIC_CLARITY_PROJECT_ID to point a
+ * fork or a staging deploy at its own Clarity project; set it to an empty
+ * string to switch Clarity off entirely.
+ */
+export const ANALYTICS = {
+  clarityProjectId:
+    process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID ?? "xmvwqogg58",
+} as const;
+
 export const CREATOR = {
   company: "Bonvo Consulting Kft.",
   name: "Gergely Kovács",
